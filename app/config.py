@@ -33,3 +33,6 @@ class Settings(RabbitMQSettings):
     mongo_database: str = Field(default="kvint", min_length=1)
     mongo_auth_source: str = Field(default="admin", min_length=1)
     mongo_connect_timeout_seconds: PositiveFloat = 10
+    mongo_operation_timeout_seconds: PositiveFloat = 10
+    consumer_retry_delay_seconds: PositiveFloat = 3
+    consumer_shutdown_timeout_seconds: PositiveFloat = 10

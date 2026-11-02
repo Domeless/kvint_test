@@ -10,6 +10,7 @@ from typing import Any
 import structlog
 from structlog.types import EventDict
 
+
 def add_component(logger: Any, method_name: str, event: EventDict) -> EventDict:
     event.setdefault("component", "app")
     return event
@@ -18,6 +19,7 @@ def add_component(logger: Any, method_name: str, event: EventDict) -> EventDict:
 def safe_exception(logger: Any, method_name: str, event: EventDict) -> EventDict:
     """Keep exception messages and frame locations without local variable values."""
     exc_info = event.pop("exc_info", None)
+    include_error_message = event.pop("include_error_message", True)
     if exc_info:
         if isinstance(exc_info, BaseException):
             exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
@@ -25,7 +27,8 @@ def safe_exception(logger: Any, method_name: str, event: EventDict) -> EventDict
             exc_info = sys.exc_info()
         if exc_info[0] is not None:
             event["error_type"] = exc_info[0].__name__
-            event["error"] = str(exc_info[1])
+            if include_error_message:
+                event["error"] = str(exc_info[1])
             event["exception"] = [
                 {"file": frame.filename, "line": frame.lineno, "function": frame.name}
                 for frame in traceback.extract_tb(exc_info[2])
