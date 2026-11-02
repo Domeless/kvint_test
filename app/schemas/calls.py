@@ -1,6 +1,6 @@
-from datetime import UTC, datetime
+from pydantic import BaseModel
 
-from pydantic import AwareDatetime, BaseModel, field_validator
+from app.schemas.types import UtcDatetime
 
 
 class CallResponse(BaseModel):
@@ -8,9 +8,4 @@ class CallResponse(BaseModel):
     campaign_id: str
     phone: str
     status: str
-    created_at: AwareDatetime
-
-    @field_validator("created_at")
-    @classmethod
-    def normalize_created_at(cls, value: datetime) -> datetime:
-        return value.astimezone(UTC)
+    created_at: UtcDatetime

@@ -1,4 +1,5 @@
-﻿from types import SimpleNamespace
+import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -58,10 +59,21 @@ async def test_database_error_requeues_without_ack(monkeypatch: pytest.MonkeyPat
     message.reject.assert_not_awaited()
 
 
-async def test_invalid_message_does_not_block_next(monkeypatch: pytest.MonkeyPatch, settings: Settings) -> None:
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"not-json",
+        json.dumps(SAMPLE_CALLS[0] | {"created_at": "0001-01-01T00:00:00+01:00"}).encode(),
+        json.dumps(SAMPLE_CALLS[0] | {"created_at": "9999-12-31T23:59:59-01:00"}).encode(),
+    ],
+    ids=["invalid-json", "utc-underflow", "utc-overflow"],
+)
+async def test_invalid_message_does_not_block_next(
+    monkeypatch: pytest.MonkeyPatch, settings: Settings, body: bytes
+) -> None:
     handler = AsyncMock()
     monkeypatch.setattr("app.messaging.consumer.handle_call", handler)
-    invalid, valid = delivery(b"not-json"), delivery()
+    invalid, valid = delivery(body), delivery()
     await process_message(invalid, None, settings)
     await process_message(valid, None, settings)
     invalid.reject.assert_awaited_once_with(requeue=False)
