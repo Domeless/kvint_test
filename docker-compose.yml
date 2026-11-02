@@ -1,0 +1,80 @@
+services:
+  mongo:
+    image: mongo:8.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-app}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-app}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-kvint}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --host 127.0.0.1
+          --username "$${MONGO_INITDB_ROOT_USERNAME}"
+          --password "$${MONGO_INITDB_ROOT_PASSWORD}"
+          --authenticationDatabase admin --eval 'db.adminCommand({ping: 1})'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  rabbitmq:
+    image: rabbitmq:4.1-management
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-app}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-app}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  app:
+    build: .
+    environment:
+      HEALTHCHECK_URL: ${HEALTHCHECK_URL:-http://127.0.0.1:8000/health}
+      MONGO_HOST: mongo
+      MONGO_PORT: "27017"
+      MONGO_USER: ${MONGO_USER:-app}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:-app}
+      MONGO_DATABASE: ${MONGO_DATABASE:-kvint}
+      MONGO_AUTH_SOURCE: admin
+      MONGO_CONNECT_TIMEOUT_SECONDS: ${MONGO_CONNECT_TIMEOUT_SECONDS:-10}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ${RABBITMQ_USER:-app}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-app}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-calls}
+      RABBITMQ_CONNECT_TIMEOUT_SECONDS: ${RABBITMQ_CONNECT_TIMEOUT_SECONDS:-10}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'curl --fail --silent --show-error --max-time 3 "$${HEALTHCHECK_URL}"'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  mongo_data:
+  rabbitmq_data:
